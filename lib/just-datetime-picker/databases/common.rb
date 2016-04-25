@@ -45,6 +45,7 @@ module Just
             validates "#{field_name}_date",        :just_date => true, :allow_nil => true, :allow_blank => false
             validates "#{field_name}_time_hour",   :numericality => { :only_integer => true, :greater_than_or_equal_to => 0, :less_than_or_equal_to => 23, :message => :just_datetime_invalid_time_hour }, :allow_nil => true, :allow_blank => false
             validates "#{field_name}_time_minute", :numericality => { :only_integer => true, :greater_than_or_equal_to => 0, :less_than_or_equal_to => 59, :message => :just_datetime_invalid_time_minute }, :allow_nil => true, :allow_blank => false
+            validates "#{field_name}_time_zone_offset", :format => { with: /\A(\+|-)\d{4}\z/ }, :allow_nil => true, :allow_blank => false
 
             after_validation do 
               date_attribute   = "#{field_name}_date".to_sym
@@ -58,8 +59,21 @@ module Just
               self.errors[date_attribute].each{ |e| self.errors[field_name] << e }
               
               self.errors[field_name].uniq!
-            end          
+            end
 
+            define_method "#{field_name}_time_zone_offset" do
+              instance_variable_get("@#{field_name}_time_zone_offset") || '+0000'
+            end
+
+            define_method "#{field_name}_time_zone_offset=" do |v|
+              if v.to_s.empty?
+                instance_variable_set("@#{field_name}_time_zone_offset", nil)
+              else
+                instance_variable_set("@#{field_name}_time_zone_offset", v)
+              end
+
+              just_combine_datetime field_name
+            end
 
             define_method "#{field_name}_date" do
               return instance_variable_get("@#{field_name}_date") if instance_variable_get("@#{field_name}_date")
@@ -117,9 +131,9 @@ module Just
           # * *Arguments*    :
           #   - +field_name+ -> attribute that is used to represent +Just Date/Time Picker+ storage
           def just_combine_datetime(field_name)
-            if not instance_variable_get("@#{field_name}_date").nil? and not instance_variable_get("@#{field_name}_time_hour").nil? and not instance_variable_get("@#{field_name}_time_minute").nil?
+            if not instance_variable_get("@#{field_name}_date").nil? and not instance_variable_get("@#{field_name}_time_hour").nil? and not instance_variable_get("@#{field_name}_time_minute").nil? and not instance_variable_get("@#{field_name}_time_zone_offset").nil?
 
-              combined = "#{instance_variable_get("@#{field_name}_date")} #{sprintf("%02d", instance_variable_get("@#{field_name}_time_hour"))}:#{sprintf("%02d", instance_variable_get("@#{field_name}_time_minute"))}:00"
+              combined = "#{instance_variable_get("@#{field_name}_date")} #{sprintf("%02d", instance_variable_get("@#{field_name}_time_hour"))}:#{sprintf("%02d", instance_variable_get("@#{field_name}_time_minute"))}:00 #{instance_variable_get("@#{field_name}_time_zone_offset")}"
               begin
                 self.send("#{field_name}=", Time.zone.parse(combined))
 
